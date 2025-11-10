@@ -220,6 +220,47 @@ This plugin **brute-force searches millions of seeds** to find ones that actuall
 - **Other players may report it** as hacked/illegal
 - **You waste time** creating Pokémon that can't be used
 
+### Why do shiny Pokémon show "PID Type: None" and "Origin Seed: 0" in PKHeX, but non-shinies show the correct values?
+
+**This is completely normal and expected PKHeX behavior!** Here's why:
+
+**For Non-Shiny Pokémon:**
+- PKHeX can **quickly reverse-calculate** the origin seed from the EC and PID
+- This is a fast mathematical operation (< 1ms)
+- Shows: `PID Type: Xoroshiro`, `Origin Seed: [calculated value]`
+
+**For Shiny Pokémon:**
+- The game rolls the PID **multiple times** (up to 4 with Shiny Charm)
+- When a shiny is found, the game **modifies the PID bits** to force shiny status
+- PKHeX doesn't know which roll succeeded or what the original bits were before modification
+- Recovering the seed requires **brute-forcing ~131,072 combinations**
+- This is **disabled by default** to prevent freezing when validating boxes of Pokémon
+- Shows: `PID Type: None`, `Origin Seed: 0`
+
+**Your Pokémon is still perfectly legal!** PKHeX only marks Pokémon as invalid if seed validation explicitly fails. When it can't determine the seed, it returns "Ignore" status, meaning it won't mark the Pokémon as illegal.
+
+The plugin shows you the seed in the alert message when you load a result - you can copy it from there if needed.
+
+### Why do different species (like Bulbasaur and Weedle) yield the same seed results?
+
+**This is actually correct behavior!** The Xoroshiro RNG is **species-agnostic** - a given seed produces the same sequence of random numbers regardless of which Pokémon you're generating.
+
+**What stays the same across species:**
+- ✅ EC (Encryption Constant)
+- ✅ PID (determines if shiny)
+- ✅ Base random number sequence
+- ✅ Ability slot number
+- ✅ Gender roll (but different species have different gender ratios, so the actual gender may differ)
+
+**What changes between species for the same seed:**
+- ❌ **Actual ability** (Weedle's ability #1 vs Bulbasaur's ability #1)
+- ❌ **Final IVs** (Alphas get 3 perfect IVs, non-Alphas get 0)
+- ❌ **Nature** (Alphas use different RNG correlation, consuming the RNG in a different order)
+- ❌ **Height/Weight** (species-specific scaling)
+
+**Why this is useful:**
+If you find a good shiny seed, you can use it for **any species you want!** Just change the species filter and search that seed range - you'll get shinies for whatever Pokémon you pick. One good seed = infinite shiny Pokémon of any species!
+
 ### Why are Shiny Alphas so hard to generate?
 
 Shiny Alphas require **PID+ correlation** where:
@@ -229,16 +270,6 @@ Shiny Alphas require **PID+ correlation** where:
 4. Only ~1 in 4,096 shinies are valid Shiny Alphas
 
 Without seed searching, finding valid Shiny Alphas is nearly impossible.
-
-### Can I use the same seed for different Pokémon?
-
-No! Each seed produces a **specific set of properties**:
-- Different species have different gender ratios
-- Different encounters have different flawless IV counts
-- Personal Info affects ability slots
-- The seed that produces a shiny male Sprigatito won't produce a shiny female Fennekin
-
-Always search for seeds per Pokémon/encounter combination.
 
 ### How do I know if my generated Pokémon is valid?
 
