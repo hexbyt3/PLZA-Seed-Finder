@@ -980,7 +980,11 @@ public partial class Gen9aSeedFinderForm : Form
     /// <returns>Scale range for searching</returns>
     private ScaleRange GetScaleRange()
     {
-        var selectedType = (ScaleSizeType)(scaleCombo.SelectedValue as int? ?? 0);
+        // Use SelectedIndex as fallback if SelectedValue is null
+        var selectedType = scaleCombo.SelectedValue is int val
+            ? (ScaleSizeType)val
+            : (ScaleSizeType)scaleCombo.SelectedIndex;
+
         return selectedType switch
         {
             ScaleSizeType.XS => new ScaleRange(0, 15),      // < 0x10
@@ -998,7 +1002,11 @@ public partial class Gen9aSeedFinderForm : Form
     /// <returns>SizeType9 for use in GenerateParam9a</returns>
     private SizeType9 GetSizeType9()
     {
-        var selectedType = (ScaleSizeType)(scaleCombo.SelectedValue as int? ?? 0);
+        // Use SelectedIndex as fallback if SelectedValue is null
+        var selectedType = scaleCombo.SelectedValue is int val
+            ? (ScaleSizeType)val
+            : (ScaleSizeType)scaleCombo.SelectedIndex;
+
         return selectedType switch
         {
             ScaleSizeType.XS => SizeType9.XS,
