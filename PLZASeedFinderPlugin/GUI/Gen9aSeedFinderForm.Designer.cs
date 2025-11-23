@@ -137,7 +137,7 @@ namespace PLZASeedFinderPlugin.GUI
             // Form
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1100, 700);
+            this.ClientSize = new System.Drawing.Size(1100, 750);
             this.Controls.Add(this.mainPanel);
             this.Controls.Add(this.statusStrip);
             this.MinimumSize = new System.Drawing.Size(1100, 700);

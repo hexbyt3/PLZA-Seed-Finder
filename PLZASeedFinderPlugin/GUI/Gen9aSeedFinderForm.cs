@@ -435,6 +435,52 @@ public partial class Gen9aSeedFinderForm : Form
         typeof(DataGridView).InvokeMember("DoubleBuffered",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, resultsGrid, [true]);
+
+        // Hook up encounter combo to disable scale for Alpha encounters
+        encounterCombo.SelectedIndexChanged += EncounterCombo_SelectedIndexChanged;
+    }
+
+    /// <summary>
+    /// Handles encounter combo selection changes to disable scale for Alpha encounters.
+    /// </summary>
+    private void EncounterCombo_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        // Check if selected encounter is an Alpha
+        var selectedIndex = encounterCombo.SelectedValue as int? ?? -1;
+        if (selectedIndex < 0)
+        {
+            // "All Encounters" is selected, enable scale combo
+            scaleCombo.Enabled = true;
+            return;
+        }
+
+        // Get the selected encounter description
+        var selectedEncounterText = (encounterCombo.SelectedItem as ComboItem)?.Text;
+        if (string.IsNullOrEmpty(selectedEncounterText))
+        {
+            scaleCombo.Enabled = true;
+            return;
+        }
+
+        // Get the current form
+        var form = (byte)(formCombo.SelectedValue as int? ?? 0);
+
+        // Find all encounters matching this description and form
+        var matchingEncounters = _cachedEncounters
+            .Where(e => e.GetDescription() == selectedEncounterText && (e.Form == form || e.Form >= EncounterUtil.FormDynamic))
+            .ToList();
+
+        // Check if any of the matching encounters are Alpha
+        var hasAlpha = matchingEncounters.Any(e => e.Encounter is EncounterSlot9a { IsAlpha: true }
+                                                 || e.Encounter is EncounterStatic9a { IsAlpha: true }
+                                                 || e.Encounter is EncounterGift9a { IsAlpha: true });
+
+        // Disable scale selection for Alpha encounters (they're always 255)
+        scaleCombo.Enabled = !hasAlpha;
+        if (hasAlpha)
+        {
+            scaleCombo.SelectedIndex = 0; // Set to "Any" when disabled
+        }
     }
 
     /// <summary>
@@ -782,6 +828,7 @@ public partial class Gen9aSeedFinderForm : Form
         var selectedEncounterText = (encounterCombo.SelectedItem as ComboItem)?.Text;
         var ivRanges = GetIVRanges();
         var scaleRange = GetScaleRange();
+        var sizeType = GetSizeType9();
         var maxResults = (int)maxSeedsNum.Value;
 
         lock (_resultsLock)
@@ -805,7 +852,7 @@ public partial class Gen9aSeedFinderForm : Form
 
         try
         {
-            await Task.Run(() => SearchSeeds(species, form, criteria, encounterIndex, selectedEncounterText, ivRanges, scaleRange, maxResults, _searchCts.Token));
+            await Task.Run(() => SearchSeeds(species, form, criteria, encounterIndex, selectedEncounterText, ivRanges, scaleRange, sizeType, maxResults, _searchCts.Token));
         }
         catch (OperationCanceledException)
         {
@@ -946,6 +993,24 @@ public partial class Gen9aSeedFinderForm : Form
     }
 
     /// <summary>
+    /// Converts the UI scale size type to PKHeX SizeType9.
+    /// </summary>
+    /// <returns>SizeType9 for use in GenerateParam9a</returns>
+    private SizeType9 GetSizeType9()
+    {
+        var selectedType = (ScaleSizeType)(scaleCombo.SelectedValue as int? ?? 0);
+        return selectedType switch
+        {
+            ScaleSizeType.XS => SizeType9.XS,
+            ScaleSizeType.S => SizeType9.S,
+            ScaleSizeType.M => SizeType9.M,
+            ScaleSizeType.L => SizeType9.L,
+            ScaleSizeType.XL => SizeType9.XL,
+            _ => SizeType9.RANDOM,
+        };
+    }
+
+    /// <summary>
     /// Gets the selected ability permission from the UI.
     /// </summary>
     /// <returns>Ability permission selection</returns>
@@ -997,9 +1062,10 @@ public partial class Gen9aSeedFinderForm : Form
     /// <param name="selectedEncounterText">Selected encounter description</param>
     /// <param name="ivRanges">IV ranges to search for</param>
     /// <param name="scaleRange">Scale range to search for</param>
+    /// <param name="sizeType">Size type for scale generation</param>
     /// <param name="maxResults">Maximum number of results</param>
     /// <param name="token">Cancellation token</param>
-    private void SearchSeeds(int species, byte form, EncounterCriteria criteria, int encounterIndex, string? selectedEncounterText, IVRange[] ivRanges, ScaleRange scaleRange, int maxResults, CancellationToken token)
+    private void SearchSeeds(int species, byte form, EncounterCriteria criteria, int encounterIndex, string? selectedEncounterText, IVRange[] ivRanges, ScaleRange scaleRange, SizeType9 sizeType, int maxResults, CancellationToken token)
     {
         var results = new List<SeedResult>();
 
@@ -1038,11 +1104,11 @@ public partial class Gen9aSeedFinderForm : Form
                     foreach (var wrapper in encountersToCheck)
                     {
                         // First, quickly verify if seed is valid without full generation
-                        if (!QuickVerifySeed(wrapper.Encounter, currentSeed, criteria, ivRanges, scaleRange, tr))
+                        if (!QuickVerifySeed(wrapper.Encounter, currentSeed, criteria, ivRanges, scaleRange, sizeType, tr))
                             continue;
 
                         // Only generate full Pokemon for valid seeds
-                        var pk = TryGeneratePokemon(wrapper.Encounter, currentSeed, criteria, tr, form);
+                        var pk = TryGeneratePokemon(wrapper.Encounter, currentSeed, criteria, sizeType, tr, form);
                         if (pk == null)
                             continue;
 
@@ -1131,9 +1197,10 @@ public partial class Gen9aSeedFinderForm : Form
     /// <param name="criteria">Search criteria</param>
     /// <param name="ivRanges">IV ranges to validate</param>
     /// <param name="scaleRange">Scale range to validate</param>
+    /// <param name="sizeType">Size type for scale generation</param>
     /// <param name="tr">Trainer information</param>
     /// <returns>True if the seed potentially matches criteria, false otherwise</returns>
-    private bool QuickVerifySeed(object encounter, ulong seed, EncounterCriteria criteria, IVRange[] ivRanges, ScaleRange scaleRange, ITrainerInfo tr)
+    private bool QuickVerifySeed(object encounter, ulong seed, EncounterCriteria criteria, IVRange[] ivRanges, ScaleRange scaleRange, SizeType9 sizeType, ITrainerInfo tr)
     {
         // Get PersonalInfo to pass to GetParams
         var pi = encounter switch
@@ -1160,6 +1227,21 @@ public partial class Gen9aSeedFinderForm : Form
 
         if (param.GenderRatio == 0 && encounter is not EncounterTrade9a)
             return false;
+
+        // Only override SizeType for non-Alpha encounters
+        // Alpha encounters must use SizeType.VALUE with Scale=255
+        var isAlpha = encounter switch
+        {
+            EncounterSlot9a slot => slot.IsAlpha,
+            EncounterStatic9a static9a => static9a.IsAlpha,
+            EncounterGift9a gift => gift.IsAlpha,
+            _ => false
+        };
+
+        if (!isAlpha)
+        {
+            param = param with { SizeType = sizeType };
+        }
 
         // For PA9, we create a temporary Pokémon and use LumioseRNG to verify
         // This is more reliable than trying to replicate complex PA9 RNG logic
@@ -1520,7 +1602,7 @@ public partial class Gen9aSeedFinderForm : Form
     /// <param name="tr">Trainer information</param>
     /// <param name="desiredForm">Desired form</param>
     /// <returns>Generated PA9 if successful, null otherwise</returns>
-    private PA9? TryGeneratePokemon(object encounter, ulong seed, EncounterCriteria criteria, ITrainerInfo tr, byte desiredForm)
+    private PA9? TryGeneratePokemon(object encounter, ulong seed, EncounterCriteria criteria, SizeType9 sizeType, ITrainerInfo tr, byte desiredForm)
     {
         try
         {
@@ -1548,6 +1630,21 @@ public partial class Gen9aSeedFinderForm : Form
                 EncounterTrade9a trade => trade.GetParams((PersonalInfo9ZA)pi),
                 _ => default
             };
+
+            // Only override SizeType for non-Alpha encounters
+            // Alpha encounters must use SizeType.VALUE with Scale=255
+            var isAlpha = encounter switch
+            {
+                EncounterSlot9a slot => slot.IsAlpha,
+                EncounterStatic9a static9a => static9a.IsAlpha,
+                EncounterGift9a gift => gift.IsAlpha,
+                _ => false
+            };
+
+            if (!isAlpha)
+            {
+                param = param with { SizeType = sizeType };
+            }
 
             // Create Pokemon with our specific seed instead of using ConvertToPKM
             // (ConvertToPKM uses a random seed which creates correlation issues)
