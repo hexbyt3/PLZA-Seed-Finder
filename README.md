@@ -1,5 +1,5 @@
 > [!IMPORTANT]  
-> This plugin requires my fork of [PKHeX](https://github.com/hexbyt3/PKHeX/releases/tag/10.26.25) to work right.  
+> This plugin requires my fork of [PKHeX](https://github.com/hexbyt3/PKHeXth/releases/) to work right.  
 
 ![GitHub Release](https://img.shields.io/github/v/release/hexbyt3/PLZA-Seed-Finder)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/hexbyt3/PLZA-Seed-Finder/total?color=violet)
