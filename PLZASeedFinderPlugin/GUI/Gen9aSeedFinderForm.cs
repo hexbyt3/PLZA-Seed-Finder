@@ -1205,21 +1205,52 @@ public partial class Gen9aSeedFinderForm : Form
     /// Gets the minimum level required for a species that evolved via move knowledge.
     /// PKHeX validates that move-evolution species could have known the required move,
     /// which depends on the level at which the pre-evolution learns that move.
+    /// Dynamically queries the Z-A learnset for accurate level requirements.
     /// </summary>
     /// <param name="species">Target species</param>
     /// <returns>Minimum level required, or 0 if not a move evolution</returns>
     private static byte GetMinLevelForMoveEvolution(ushort species)
     {
-        return species switch
+        // Check if this is a move-based evolution
+        var move = EvolutionRestrictions.GetSpeciesEvolutionMove(species);
+        if (move == EvolutionRestrictions.NONE)
+            return 0;
+
+        // Sylveon uses any fairy move - get minimum level for the earliest one
+        if (move == EvolutionRestrictions.EEVEE)
+            return GetMinLevelForSylveon();
+
+        // Get the pre-evolution that learns the required move
+        var (preEvoSpecies, preEvoForm) = EvolutionRestrictions.GetPreEvolutionForMoveEvolution(species);
+        if (preEvoSpecies == 0)
+            return 0;
+
+        // Query the Z-A learnset for the level at which the pre-evo learns the move
+        var (learn, _) = LearnSource9ZA.GetLearnsetAndPlus(preEvoSpecies, preEvoForm);
+        if (learn.TryGetLevelLearnMove(move, out var level))
+            return level;
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Gets the minimum level for Sylveon evolution (earliest fairy move Eevee can learn).
+    /// </summary>
+    private static byte GetMinLevelForSylveon()
+    {
+        var (learn, _) = LearnSource9ZA.GetLearnsetAndPlus((ushort)Species.Eevee, 0);
+
+        // Check all fairy moves Eevee can learn and return the lowest level
+        ReadOnlySpan<ushort> fairyMoves = [(ushort)PKHeX.Core.Move.Charm, (ushort)PKHeX.Core.Move.BabyDollEyes, (ushort)PKHeX.Core.Move.DisarmingVoice];
+        byte minLevel = byte.MaxValue;
+
+        foreach (var move in fairyMoves)
         {
-            // Annihilape: Primeape learns Rage Fist at level 35 in Z-A
-            (ushort)Species.Annihilape => 35,
-            // Overqwil: Qwilfish-Hisui learns Barb Barrage at level 28 in Z-A
-            (ushort)Species.Overqwil => 28,
-            // Wyrdeer: Stantler learns Psyshield Bash at level 31 in Z-A
-            (ushort)Species.Wyrdeer => 31,
-            _ => 0
-        };
+            if (learn.TryGetLevelLearnMove(move, out var level) && level < minLevel)
+                minLevel = level;
+        }
+
+        return minLevel == byte.MaxValue ? (byte)0 : minLevel;
     }
 
     /// <summary>
