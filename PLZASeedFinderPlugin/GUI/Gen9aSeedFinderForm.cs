@@ -2272,7 +2272,7 @@ public partial class Gen9aSeedFinderForm : Form
 
         try
         {
-            LumioseSolver.SearchShiny1 = true;
+            LumioseSolver.SeedHint = result.Seed;
             _pkmEditor.PopulateFields(result.Pokemon);
 
             var wrapper = new EncounterWrapper(result.Encounter, GameVersion.ZA);
@@ -2284,7 +2284,7 @@ public partial class Gen9aSeedFinderForm : Form
         }
         finally
         {
-            LumioseSolver.SearchShiny1 = false;
+            LumioseSolver.SeedHint = null;
         }
     }
 
