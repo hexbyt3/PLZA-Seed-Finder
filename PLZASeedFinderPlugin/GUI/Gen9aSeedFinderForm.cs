@@ -454,6 +454,7 @@ public partial class Gen9aSeedFinderForm : Form
         UpdateEncounterList(species);
         UpdateSourceDisplay();
         UpdateEncounterCombo();
+        UpdateAbilityList();
     }
 
     /// <summary>
@@ -721,6 +722,7 @@ public partial class Gen9aSeedFinderForm : Form
         UpdateEncounterList(species);
         UpdateSourceDisplay();
         UpdateEncounterCombo();
+        UpdateAbilityList();
     }
 
     /// <summary>
@@ -738,6 +740,25 @@ public partial class Gen9aSeedFinderForm : Form
         // Ensure form 0 is selected after changing DataSource
         if (formCombo.Items.Count > 0)
             formCombo.SelectedIndex = 0;
+    }
+
+    private void UpdateAbilityList()
+    {
+        var prev = abilityCombo.SelectedIndex;
+
+        var species = (ushort)(speciesCombo.SelectedValue as int? ?? 0);
+        var form = (byte)(formCombo.SelectedValue as int? ?? 0);
+        var pi = PersonalTable.ZA[species, form];
+        var names = GameInfo.Strings.abilitylist;
+
+        abilityCombo.Items.Clear();
+        abilityCombo.Items.Add("Any");
+        abilityCombo.Items.Add($"{names[pi.Ability1]} (1)");
+        abilityCombo.Items.Add($"{names[pi.Ability2]} (2)");
+        abilityCombo.Items.Add($"{names[pi.AbilityH]} (H)");
+        abilityCombo.Items.Add("1/2");
+
+        abilityCombo.SelectedIndex = Math.Clamp(prev, 0, abilityCombo.Items.Count - 1);
     }
 
     /// <summary>
