@@ -468,6 +468,7 @@ public partial class Gen9aSeedFinderForm : Form
         {
             // "All Encounters" is selected, enable all controls and restore user values
             scaleCombo.Enabled = true;
+            shinyCombo.Enabled = true;
             UnlockTrainerFields();
             return;
         }
@@ -477,6 +478,7 @@ public partial class Gen9aSeedFinderForm : Form
         if (string.IsNullOrEmpty(selectedEncounterText))
         {
             scaleCombo.Enabled = true;
+            shinyCombo.Enabled = true;
             UnlockTrainerFields();
             return;
         }
@@ -486,8 +488,19 @@ public partial class Gen9aSeedFinderForm : Form
 
         // Find all encounters matching this description and form
         var matchingEncounters = _cachedEncounters
-            .Where(e => e.GetDescription() == selectedEncounterText && (e.Form == form || e.Form >= EncounterUtil.FormDynamic))
+            .Where(e => e.GetDescription() == selectedEncounterText && MatchesTargetForm(e, form))
             .ToList();
+
+        // Lock shiny dropdown for shiny-locked encounters
+        if (matchingEncounters.All(e => e.Shiny == Shiny.Never))
+        {
+            shinyCombo.SelectedIndex = 0; // No
+            shinyCombo.Enabled = false;
+        }
+        else
+        {
+            shinyCombo.Enabled = true;
+        }
 
         // Check if any of the matching encounters are Alpha
         var hasAlpha = matchingEncounters.Any(e => e.Encounter is EncounterSlot9a { IsAlpha: true }
@@ -2799,6 +2812,15 @@ public partial class Gen9aSeedFinderForm : Form
             EncounterGift9a nd => nd.Form,
             EncounterTrade9a u => u.Form,
             _ => 0
+        };
+
+        public Shiny Shiny => Encounter switch
+        {
+            EncounterSlot9a n => n.Shiny,
+            EncounterStatic9a nc => nc.Shiny,
+            EncounterGift9a nd => nd.Shiny,
+            EncounterTrade9a u => u.Shiny,
+            _ => Shiny.Random
         };
 
         /// <summary>
