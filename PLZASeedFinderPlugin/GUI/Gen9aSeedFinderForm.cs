@@ -1687,18 +1687,11 @@ public partial class Gen9aSeedFinderForm : Form
                 {
                     foreach (var wrapper in encountersToCheck)
                     {
-                        // First, quickly verify if seed is valid without full generation
-                        if (!QuickVerifySeed(wrapper.Encounter, currentSeed, criteria, ivRanges, scaleRange, sizeType, tr))
-                            continue;
-
-                        // Only generate full Pokemon for valid seeds
-                        // Pass evolution info if this is an evolution encounter
                         var pk = TryGeneratePokemon(wrapper.Encounter, currentSeed, criteria, sizeType, tr, form,
                             wrapper.TargetEvolutionSpecies, wrapper.TargetEvolutionForm);
                         if (pk == null)
                             continue;
 
-                        // Verify all criteria including shiny, nature, gender, ability, IVs, and scale
                         if (!CheckPokemonMatchesCriteria(pk, criteria, ivRanges, scaleRange))
                             continue;
 
@@ -1773,150 +1766,6 @@ public partial class Gen9aSeedFinderForm : Form
         {
             // Form was disposed while updating, ignore
         }
-    }
-
-    /// <summary>
-    /// Quickly verifies if a seed matches the search criteria without generating a full Pokémon.
-    /// </summary>
-    /// <param name="encounter">Encounter to verify against</param>
-    /// <param name="seed">Seed value to check</param>
-    /// <param name="criteria">Search criteria</param>
-    /// <param name="ivRanges">IV ranges to validate</param>
-    /// <param name="scaleRange">Scale range to validate</param>
-    /// <param name="sizeType">Size type for scale generation</param>
-    /// <param name="tr">Trainer information</param>
-    /// <returns>True if the seed potentially matches criteria, false otherwise</returns>
-    private bool QuickVerifySeed(object encounter, ulong seed, EncounterCriteria criteria, IVRange[] ivRanges, ScaleRange scaleRange, SizeType9 sizeType, ITrainerInfo tr)
-    {
-        // Get PersonalInfo to pass to GetParams
-        var pi = encounter switch
-        {
-            EncounterSlot9a slot => PersonalTable.ZA[slot.Species, slot.Form],
-            EncounterStatic9a static9a => PersonalTable.ZA[static9a.Species, static9a.Form],
-            EncounterGift9a gift => PersonalTable.ZA[gift.Species, gift.Form],
-            EncounterTrade9a trade => PersonalTable.ZA[trade.Species, trade.Form],
-            _ => null
-        };
-
-        if (pi == null)
-            return false;
-
-        // Use each encounter's GetParams method to get the proper parameters with correlation
-        // Pass shiny charm and shiny power settings to encounters that support them (Slot/Static only)
-        bool hasShinyCharm = shinyCharmCheck.Checked;
-        bool hasShinyPower = shinyPowerCheck.Checked;
-        var param = encounter switch
-        {
-            EncounterSlot9a slot => slot.GetParams((PersonalInfo9ZA)pi, hasShinyCharm, hasShinyPower),
-            EncounterStatic9a static9a => static9a.GetParams((PersonalInfo9ZA)pi, hasShinyCharm, hasShinyPower),
-            EncounterGift9a gift => gift.GetParams((PersonalInfo9ZA)pi),
-            EncounterTrade9a trade => trade.GetParams((PersonalInfo9ZA)pi),
-            _ => default
-        };
-
-        // Note: GenderRatio == 0 is valid (RatioMagicMale = male-only Pokemon like Latios)
-        // The pi == null check above already handles invalid encounter types
-
-        // Only override SizeType if the encounter doesn't have a fixed scale
-        // - Alpha encounters use SizeType.VALUE with Scale=255
-        // - Static encounters may have fixed scales (e.g., Mewtwo has Scale=128)
-        // - Only override if the encounter's GetParams returned SizeType.RANDOM
-        // Checking param.SizeType handles both cases: Alphas and fixed-scale statics both have VALUE
-        if (param.SizeType != SizeType9.VALUE)
-        {
-            param = param with { SizeType = sizeType };
-        }
-
-        // For PA9, we create a temporary Pokémon and use LumioseRNG to verify
-        // This is more reliable than trying to replicate complex PA9 RNG logic
-        // IMPORTANT: Must set ID32 because GetAdaptedPID uses it for shiny calculations
-        // For Shiny.Never encounters, PID is XORed if it would be shiny with the trainer's ID
-        var pk = new PA9 {
-            Species = encounter switch {
-                EncounterSlot9a s => s.Species,
-                EncounterStatic9a s => s.Species,
-                EncounterGift9a g => g.Species,
-                EncounterTrade9a t => t.Species,
-                _ => 0
-            },
-            ID32 = tr.ID32
-        };
-
-        if (pk.Species == 0)
-            return false;
-
-        // Use LumioseRNG to generate the Pokemon with this seed
-        if (!LumioseRNG.GenerateData(pk, param, criteria, seed))
-            return false;
-
-        // Check IV ranges
-        Span<int> ivs = stackalloc int[6];
-        ivs[0] = pk.IV_HP;
-        ivs[1] = pk.IV_ATK;
-        ivs[2] = pk.IV_DEF;
-        ivs[3] = pk.IV_SPA;
-        ivs[4] = pk.IV_SPD;
-        ivs[5] = pk.IV_SPE;
-
-        if (!CheckIVRangesSpan(ivs, ivRanges))
-            return false;
-
-        // Additional criteria checks
-        if (criteria.Gender != Gender.Random && pk.Gender != (byte)criteria.Gender)
-            return false;
-
-        if (criteria.Nature.IsFixed() && pk.Nature != criteria.Nature)
-            return false;
-
-        if (criteria.Ability != AbilityPermission.Any12H)
-        {
-            if (!CheckAbilityQuick(pk.AbilityNumber, criteria.Ability))
-                return false;
-        }
-
-        // Check shiny criteria
-        if (criteria.IsSpecifiedShiny() && !criteria.IsSatisfiedShiny(ShinyUtil.GetShinyXor(pk.PID, pk.ID32), 16))
-            return false;
-
-        // Check scale
-        if (pk.Scale < scaleRange.Min || pk.Scale > scaleRange.Max)
-            return false;
-
-        return true;
-    }
-
-    /// <summary>
-    /// Checks if the given IVs are within the specified ranges using a Span for performance.
-    /// </summary>
-    /// <param name="ivs">Span containing the 6 IV values</param>
-    /// <param name="ranges">Array of IV ranges to validate against</param>
-    /// <returns>True if all IVs are within their respective ranges, false otherwise</returns>
-    private static bool CheckIVRangesSpan(Span<int> ivs, IVRange[] ranges)
-    {
-        return ivs[0] >= ranges[0].Min && ivs[0] <= ranges[0].Max &&
-               ivs[1] >= ranges[1].Min && ivs[1] <= ranges[1].Max &&
-               ivs[2] >= ranges[2].Min && ivs[2] <= ranges[2].Max &&
-               ivs[3] >= ranges[3].Min && ivs[3] <= ranges[3].Max &&
-               ivs[4] >= ranges[4].Min && ivs[4] <= ranges[4].Max &&
-               ivs[5] >= ranges[5].Min && ivs[5] <= ranges[5].Max;
-    }
-
-    /// <summary>
-    /// Quickly checks if an ability number matches the specified criteria.
-    /// </summary>
-    /// <param name="abilityNumber">The ability slot number (0-2)</param>
-    /// <param name="criteria">The ability permission criteria</param>
-    /// <returns>True if the ability matches criteria, false otherwise</returns>
-    private static bool CheckAbilityQuick(int abilityNumber, AbilityPermission criteria)
-    {
-        return (criteria, abilityNumber) switch
-        {
-            (AbilityPermission.OnlyFirst, 0) => true,
-            (AbilityPermission.OnlySecond, 1) => true,
-            (AbilityPermission.OnlyHidden, 2) => true,
-            (AbilityPermission.Any12, 0 or 1) => true,
-            _ => false
-        };
     }
 
     /// <summary>
