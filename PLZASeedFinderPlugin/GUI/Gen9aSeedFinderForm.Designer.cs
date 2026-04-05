@@ -460,11 +460,8 @@ namespace PLZASeedFinderPlugin.GUI
             this.shinyCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.shinyCombo.FormattingEnabled = true;
             this.shinyCombo.Items.AddRange(new object[] {
-                "Random",
-                "Never",
-                "Always",
-                "Square",
-                "Star"});
+                "No",
+                "Yes"});
             this.shinyCombo.Location = new System.Drawing.Point(240, 52);
             this.shinyCombo.Name = "shinyCombo";
             this.shinyCombo.Size = new System.Drawing.Size(110, 23);
