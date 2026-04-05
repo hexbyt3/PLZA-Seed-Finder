@@ -2261,11 +2261,7 @@ public partial class Gen9aSeedFinderForm : Form
         return $"{pk.IV_HP}/{pk.IV_ATK}/{pk.IV_DEF}/{pk.IV_SPA}/{pk.IV_SPD}/{pk.IV_SPE}";
     }
 
-    /// <summary>
-    /// Handles double-click events on the results grid to load Pokémon into the editor.
-    /// Temporarily enables SearchShiny1 during load for proper validation, then disables it to prevent PKHeX slowdown.
-    /// </summary>
-    private async void ResultsGrid_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
+    private void ResultsGrid_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
     {
         if (e.RowIndex < 0 || e.RowIndex >= resultsGrid.Rows.Count)
             return;
@@ -2274,70 +2270,21 @@ public partial class Gen9aSeedFinderForm : Form
         if (result == null)
             return;
 
-        // Show loading indicator
-        var previousCursor = Cursor;
-        Cursor = Cursors.WaitCursor;
-        resultsGrid.Enabled = false;
-
-        // Create and show a loading form
-        using var loadingForm = new Form
-        {
-            Text = "Please Wait",
-            Size = new Size(300, 100),
-            FormBorderStyle = FormBorderStyle.FixedDialog,
-            StartPosition = FormStartPosition.CenterScreen,
-            ControlBox = false,
-            MaximizeBox = false,
-            MinimizeBox = false,
-            ShowInTaskbar = false,
-            TopMost = true
-        };
-        var loadingLabel = new Label
-        {
-            Text = "Generating Pokémon and running validators...",
-            AutoSize = false,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.Fill
-        };
-        loadingForm.Controls.Add(loadingLabel);
-        loadingForm.Show(this);
-        loadingForm.Refresh();
-
         try
         {
-            // Enable SearchShiny1 temporarily so PKHeX validates the Pokemon correctly
-            // This is especially important for Shiny Alphas which need PID+ correlation validation
             LumioseSolver.SearchShiny1 = true;
-
-            // Small delay to ensure PKHeX recognizes the SearchShiny1 setting change
-            await Task.Delay(50);
-
-            // Load the Pokémon into PKHeX editor
             _pkmEditor.PopulateFields(result.Pokemon);
-
-            // Wait for PKHeX to complete validation
-            await Task.Delay(500);
-
-            // Close loading form before showing success message
-            loadingForm.Close();
 
             var wrapper = new EncounterWrapper(result.Encounter, GameVersion.ZA);
             WinFormsUtil.Alert($"Loaded {result.Pokemon.Nickname}!\nSeed: {result.Seed:X16}\nEncounter: {wrapper.GetDescription()}");
         }
         catch (Exception ex)
         {
-            loadingForm.Close();
             WinFormsUtil.Error($"Failed to load Pokémon: {ex.Message}");
         }
         finally
         {
-            // Always disable SearchShiny1 after loading to prevent PKHeX from slowing down
-            // when validating boxes (it would run expensive PID+ checks on every Pokemon)
             LumioseSolver.SearchShiny1 = false;
-
-            // Restore UI state
-            Cursor = previousCursor;
-            resultsGrid.Enabled = true;
         }
     }
 
