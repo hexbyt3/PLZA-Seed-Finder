@@ -1915,6 +1915,9 @@ public partial class Gen9aSeedFinderForm : Form
         // Clear relearn moves - PLZA encounters don't have relearn moves
         pk.SetRelearnMoves(ReadOnlySpan<ushort>.Empty);
 
+        // Apply a legal ball matching the Pokémon's color (PKHeX built-in behavior)
+        BallApplicator.ApplyBallLegalByColor(pk);
+
         pk.HealPP();
         pk.ResetPartyStats();
 
