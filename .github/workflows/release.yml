@@ -12,9 +12,9 @@ jobs:
     runs-on: windows-latest
     if: github.ref_name == github.event.repository.default_branch   # manual runs too
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: Restore dependencies
@@ -70,7 +70,7 @@ jobs:
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
           echo "name=$name" >> $env:GITHUB_OUTPUT
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: "${{ steps.tag.outputs.tag }}"
           name: "${{ steps.tag.outputs.name }}"
