@@ -10,6 +10,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    if: github.ref_name == github.event.repository.default_branch   # manual runs too
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
