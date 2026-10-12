@@ -1,6 +1,7 @@
 name: Build and Release
 on:
   push:
+    branches: [ main ]   # a release only ever comes from the default branch
     paths:
       - "PLZASeedFinderPlugin/Deps/PKHeX.Core.dll"
   workflow_dispatch:
