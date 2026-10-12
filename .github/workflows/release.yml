@@ -14,7 +14,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
       - name: Restore dependencies
         run: dotnet restore PLZASeedFinderPlugin.sln
       - name: Build
@@ -74,4 +74,4 @@ jobs:
           name: "${{ steps.tag.outputs.name }}"
           body: "Automated release for ${{ steps.tag.outputs.name }}"
           files: |
-            PLZASeedFinderPlugin/bin/Release/net9.0-windows/PLZASeedFinderPlugin.dll
+            PLZASeedFinderPlugin/bin/Release/net10.0-windows/PLZASeedFinderPlugin.dll

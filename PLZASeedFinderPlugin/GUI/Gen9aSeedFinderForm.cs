@@ -1896,8 +1896,8 @@ public partial class Gen9aSeedFinderForm : Form
         if (encounter is IFixedGender fixedGender && fixedGender.Gender != FixedGenderUtil.GenderRandom)
             pk.Gender = fixedGender.Gender;
 
-        if (encounter is IFixedNature fixedNature && fixedNature.Nature.IsFixed())
-            pk.StatNature = pk.Nature = fixedNature.Nature;
+        if (encounter is IFixedNature fixedNature && fixedNature.Nature.IsFixed)
+            pk.StatAlignment = pk.Nature = fixedNature.Nature;
 
         if (encounter is IFixedIVSet fixedIV && fixedIV.IVs.IsSpecified)
         {
@@ -2116,7 +2116,7 @@ public partial class Gen9aSeedFinderForm : Form
             return false;
 
         // Check nature
-        if (criteria.Nature.IsFixed() && pk.Nature != criteria.Nature)
+        if (criteria.Nature.IsFixed && pk.Nature != criteria.Nature)
             return false;
 
         // Check IVs
